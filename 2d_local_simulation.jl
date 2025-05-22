@@ -1,5 +1,3 @@
-
-
 include("common_functions.jl")
 
 """
@@ -23,7 +21,7 @@ function update_fields!(fields,new_fields,anyons,bconds,onenorm)
         if onenorm 
 
             #### 1-norm distance fields #### 
-            # currently the lightfronts propagate with the 1-norm, but they are erased with the \infty norm... 
+            # currently the lightfronts propagate with the 1-norm, but they are erased with the \infty norm; getting them to be erased with the 1-norm necessesitates a few extra variables...  
 
             ### +x fields ### 
             newfield = Inf 
@@ -180,7 +178,7 @@ function update_fields!(fields,new_fields,anyons,bconds,onenorm)
     fields .= new_fields
 end 
 
-function anyons_source_fields!(anyons,fields)
+function anyons_source_fields!(anyons,fields) # ensures that fields are always updated in the 1-balls around the each anyon's position
     L = size(fields)[1]
     ind(i) = mod1(i,L)
     for i in 1:L, j in 1:L 
@@ -237,39 +235,15 @@ function update_state!(state,correction,anyons,fields,new_fields,r,p,synch,bcond
                     if maximum(fields[i,j,:,:]) != 0 # move somewhere 
                         im1 = ind(i-1); jm1 = ind(j-1)
                         mindist = minimum(fields[i,j,:,:][fields[i,j,:,:] .> 0])
-                        # noxdeg = fields[i,j,1,1] != fields[i,j,1,2]
-                        # noydeg = fields[i,j,2,1] != fields[i,j,2,2]
-                        if fields[i,j,1,1] == mindist #&& noxdeg # move along -x if don't have equal force along +x direction
+                        if fields[i,j,1,1] == mindist 
                             correction[im1,j,1] = true 
-                            # anyons[i,j] ⊻= true; anyons[im1,j] ⊻= true
-                        elseif fields[i,j,2,1] == mindist #&& noydeg  # move along -y if don't have equal force along +y direction
+                        elseif fields[i,j,2,1] == mindist 
                             correction[i,jm1,2] = true
-                            # anyons[i,j] ⊻= true; anyons[i,jm1] ⊻= true
-                        elseif fields[i,j,2,2] == mindist #&& noydeg # move along +y if don't have equal force along +y direction
+                        elseif fields[i,j,2,2] == mindist 
                             correction[i,j,2] = true
-                            # anyons[i,j] ⊻= true; anyons[i,ind(j+1)] ⊻= true
-                        elseif fields[i,j,1,2] == mindist #&& noxdeg # move along +x if don't have equal force along -x direction
+                        elseif fields[i,j,1,2] == mindist 
                             correction[i,j,1] = true
-                            # anyons[i,j] ⊻= true; anyons[ind(i+1),j] ⊻= true
-                        # elseif ~noxdeg 
-                        #     if fields[i,j,2,1] > fields[i,j,2,2] && fields[i,j,2,2] != 0 
-                        #         correction[i,j,2] = true 
-                        #     elseif fields[i,j,2,2] > fields[i,j,2,1] && fields[i,j,2,1] != 0 
-                        #         correction[i,jm1,2] = true 
-                        #     end
-                        # elseif ~noydeg 
-                        #     if fields[i,j,1,1] > fields[i,j,1,2] && fields[i,j,1,2] != 0 
-                        #         correction[i,j,1] = true 
-                        #     elseif fields[i,j,1,2] > fields[i,j,1,1] && fields[i,j,1,1] != 0 
-                        #         correction[im1,j,1] = true 
-                        #     end
-                        # elseif ~noxdeg && ~noydeg 
-                        #     correction[i,j,rand(1:2)] = true
                         end
-                        # if (~noxdeg) && (~noydeg) # if we have equal (and nonzero) forces, move randomly 
-                        # # if (~noxdeg && fields[i,j,1,1] != 0) || (~noydeg && fields[i,j,2,1] != 0) # if we have equal (and nonzero) forces, move randomly 
-                        #     correction[i,j,rand(1:2)] = true 
-                        # end
                     end 
                 end 
             end
@@ -280,16 +254,10 @@ function update_state!(state,correction,anyons,fields,new_fields,r,p,synch,bcond
         for i in rmin:rmax, j in rmin:rmax, o in 1:2
             if rand() < p 
                 state[i,j,o] ⊻= true 
-                # anyons[i,j] ⊻= true 
-                # if o == 1 
-                #     anyons[ind(i+1),j] ⊻= true 
-                # else 
-                #     anyons[i,ind(j+1)] ⊻= true 
-                # end
             end 
         end
 
-        # compute anyon positions again (not super efficient)
+        # compute anyon positions (not efficient but fine for now)
         anyons .= get_synds(state)
 
         anyons_source_fields!(anyons,fields)
@@ -554,7 +522,7 @@ function parameter_repository(mode,L,p,synch,vary_L)
             Ls = [round(Int,2^el) for el in LinRange(log2(Lmin),log2(Lmax),nels)]
             Ls .+= Ls .% 2 # make sure Ls are even to avoid even / odd effect 
             reverse!(Ls) # do the long ones first so we have an idea of how long things will take
-            samps_vec = [round(Int,800000/el) for el in Ls] # poosamps 
+            samps_vec = [round(Int,800000/el) for el in Ls] 
             Ts = [el for _ in Ls]
         end 
     end 
@@ -633,14 +601,14 @@ function main()
     * "erode": compute erosion fidelities and erosion times (and statistics thereof) 
     """
 
-    mode = "hist" # "trel" "Ft" "hist" "erode" # poomode
-    L = 75 # pool
-    p = .24 # (used if varying L) # poop 
-    vary_L = ~true # if true, vary system size; if false, use fixed system size and vary p # poovaryL 
+    mode = "hist" # "trel" "Ft" "hist" "erode" 
+    L = 75 # 
+    p = .24 # (used if varying L) 
+    vary_L = ~true # if true, vary system size; if false, use fixed system size and vary p  
 
-    r = 3 # number of field updates per spin update. apparently need r > 2 to guarantee a threshold. 
+    r = 3 # number of field updates per spin update. need r > 2 to rigorously guarantee linear erosion
     synch = true 
-    bconds = "periodic" # "periodic" "open" # poobconds 
+    bconds = "periodic" # "periodic" "open" 
 
     out_adj = ""
 
@@ -667,12 +635,14 @@ function main()
 
     ### write history of evolution ### 
     if mode == "hist" 
-        T = round(Int,L/2) 
+        T = round(Int,L) 
     
         println("running for time T = $T")
         data["hist"] = zeros(Bool,T,L,L,2)
         data["field_hist"] = zeros(Int,T,L,L,2,2)
         data["anyon_hist"] = zeros(Bool,T,L,L)  
+
+        # create an example fixed error pattern 
         state = falses(L,L,2)
         hL = div(L,2)
         dx = div(L,5)
@@ -702,9 +672,9 @@ function main()
                 data["field_hist"][t,:,:,:,:] .= fields
                 data["anyon_hist"][t,:,:] .= anyons
                 update_state!(state,correction,anyons,fields,new_fields,r,0,synch,bconds)
-                # if ~any(anyons) # if we are anyon-free 
-                #     break 
-                # end
+                if ~any(anyons) # if we are anyon-free 
+                    break 
+                end
             end 
             if examples % 100 == 0 println(examples) end 
             if any(anyons) 
@@ -720,7 +690,7 @@ function main()
         data["erode_times"] = zeros(nps)
         data["erode_stats"] = zeros(nps,3) # mean, std, max of erosion times
         C = 2 
-        # data["anyon_density"] = zeros(nps,C*maximum(Ls)) # average anyon density at time t 
+        # data["anyon_density"] = zeros(nps,C*maximum(Ls)) # average anyon density at time t (not super useful; currently not calculated)
         for (pind,thisp) in enumerate(ps) 
             thisL = Ls[pind]
             max_erode_time = C * thisL^2
@@ -881,7 +851,6 @@ function main()
     else 
         alert("finished | L = $L; p = $(ps[1]) → $(ps[end])")
     end 
-    # print time that script finished 
     println("finished at time $(Dates.now())")
 end 
 

@@ -28,26 +28,6 @@ parser.add_argument('-extend_fit',action='store_true') # if true, extends the fi
 parser.add_argument('-max_te',action='store_true') # if true, plots the max erosion time 
 args = parser.parse_args() 
 
-""" 
-figures in offline decoding paper:
-
-1D plog vs p: 
-p simulation_plotter.py -fin tmp_data/1dloc_erode_L32_smallrand.jld2 tmp_data/1dloc_erode_L64_smallrand.jld2 tmp_data/1dloc_erode_L128_smallrand.jld2 tmp_data/1dloc_erode_L256_smallrand.jld2 tmp_data/1dloc_erode_L512_smallrand.jld2 -just_f
-
-1D plog vs L:
-p simulation_plotter.py -fin tmp_data/1dloc_erode_p0.3_fscaling.jld2 tmp_data/1dloc_erode_p0.35_fscaling.jld2 tmp_data/1dloc_erode_p0.4_fscaling.jld2 -just_f
-
-1D decoding time: 
-p simulation_plotter.py -fin tmp_data/1dloc_erode_p0.2.jld2 tmp_data/1dloc_erode_p0.25.jld2 tmp_data/1dloc_erode_p0.3.jld2 -just_te
-
-----
-
-figures in online decoding paper: 
-
-field-based decoders: 
-
-"""
-
 ### aesthetics ### 
 ms = 7 # marker size 
 plotsize = 3.5 # size of plots (in.)
@@ -70,9 +50,11 @@ else:
 
 ### plot labels etc. ### 
 title = r"${\sf TC}$" if "2d" in args.fin[0] else r"${\sf rep.\, code}$"
+# title = r"${\sf TC\, \, |\,\,{\sf uncoord}}$" if "2d" in args.fin[0] else r"${\sf rep.\, code}$"
 xlab = r"$L$" if vary_L else r"$p$"
 if mode == "erode": 
     ylab = r"$T_{\sf dec}$" if args.just_te else r"$p_{\sf log}$"
+    # ylab = r"$T_{\sf dec}$" if args.just_te else r"$p_{\sf log}^{\sf un}$"
 elif mode == "Ft":
     ylab = r"$F_T$" if not args.error_rate else r"$\varepsilon$"
 elif mode == "trel":
@@ -161,7 +143,7 @@ elif "erode" in mode:
             erode_times = data[f]["erode_times"].T  
             fs = data[f]["erode_frac"].T 
             if vary_L:
-                ax.scatter(els,1-fs,label=r'$%.2f$'%p,c=cmap(f/len(fins)),ec='k',lw=lw,marker='o',s=70,alpha=1)
+                ax.scatter(els,1-fs,label=r'$%.3f$'%p,c=cmap(f/len(fins)),ec='k',lw=lw,marker='o',s=70,alpha=1)
                 mp = -1 
                 fits = np.polyfit(els[:mp],np.log((1-fs)[:mp]),1)
                 pc = .055
@@ -275,7 +257,6 @@ elif "trel" in mode:
             ys = data[f]["trels"]
             samps = data[f]["samps"]
             print("p = ",data[f]["p"])
-            print("samps = ",samps)
 
             ax.plot(Ls,ys,label=data[f]["p"],c=cmap(f/len(fins)),mec='k',lw=lw,marker='o',ms=ms)
 
@@ -303,8 +284,8 @@ elif "trel" in mode:
             try: 
                 print(data[f]["qs"])
             except: 
-                print("no qs") 
-
+                pass 
+            
             mp = int(len(xs)/2) # do the fit for the data in the second half of the curve
             fits[f] = np.polyfit(np.log(1/xs[:mp]),np.log(ys[:mp]),1)[0]
 
@@ -321,13 +302,13 @@ elif "trel" in mode:
 
 
 # set titles and labels etc. 
-if len(ax) == 1:
+try: 
+    for i in range(nplots): 
+        ax[i].legend(title=leg_title,fontsize=legend_fontsize,title_fontsize=legend_title_fontsize,loc=leg_loc)
+except:
     ax.set(xlabel=xlab,ylabel=ylab)
     ax.set_title(title)
     ax.legend(title=leg_title,fontsize=legend_fontsize,title_fontsize=legend_title_fontsize,loc=leg_loc)
-else: 
-    for i in range(nplots): 
-        ax[i].legend(title=leg_title,fontsize=legend_fontsize,title_fontsize=legend_title_fontsize,loc=leg_loc)
 
 plt.show()
 

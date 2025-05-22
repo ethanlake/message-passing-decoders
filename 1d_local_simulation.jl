@@ -75,7 +75,7 @@ function update_state!(state,correction,fields,new_fields,r,p,synch)
 
     ### asychronous updates ### 
     else 
-        for _ in 1:round(L/2) # poocontinuoustime
+        for _ in 1:round(L/2) 
             i = rand(1:L); ip1 = ind(i+1); im1 = ind(i-1)
 
             ### update fields ### 
@@ -121,15 +121,11 @@ function parameter_repository(mode,L,p,vary_L)
             samps_vec = [samps for _ in 1:nps]
             
             pmin = .07; pmax = .23
-            # if L > 16 pmin = .06 end 
-            # if L > 32 pmin = .07 end 
             ps = [10^(x) for x in LinRange(log10(pmin),log10(pmax),nps)] 
 
         ### vary system size, fix p ###
         else 
             Lmin = 8; Lmax = 2*1024
-            # if p < .15 Lmax = 512 end 
-            # if p ≥ .135 Lmax = 2048 end
             nps = 15
             Ls = [round(Int,2^el) for el in LinRange(log2(Lmin),log2(Lmax),nps)]
             Ls .+= Ls .% 2 # make sure Ls are even to avoid even / odd effect 
@@ -170,7 +166,6 @@ function parameter_repository(mode,L,p,vary_L)
         else # varying L 
             # for looking at the erosion time: can go to very large L 
             Lmin = 800; Lmax = 48*2056 
-            # Lmax = 16 * 2056
             nps = 9
             Ls = [round(Int,2^el) for el in LinRange(log2(Lmin),log2(Lmax),nps)]
             Ls .+= Ls .% 2 # make sure Ls are even to avoid even / odd effect 
@@ -220,15 +215,11 @@ function adversarial_state_gen(n,k,l,seed)
     1 -> 1^k 0^{n-k}
     on input state seed
     """
-    rules = Dict(
-        0 => fill(0, n),
-        1 => vcat(fill(1, k), fill(0, n - k))
-    )
+    rules = Dict(0 => fill(0, n),1 => vcat(fill(1, k), fill(0, n - k)))
+
+    current = [seed ? 1 : 0] # initialize 
     
-    # Initialize with the starting symbol
-    current = [seed ? 1 : 0]
-    
-    # Apply the substitution rule l times
+    # apply the substitution rule
     for _ in 1:l
         next = Int[]
         for symbol in current
@@ -251,21 +242,8 @@ function main()
     """
 
     mode = "hist" # "trel" "Ft" "hist" "erode" 
-    L = 1028
-    L = 48
-    L = 16
-    L = 200
-    L = 96
-    # pool 
-    L = 8
-    L = 16 
-    L = 32
-    L = 256 
-    L = 64
-    L = 128 
-    L = 256
     L = 512
-    p = .35 # poop (used if varying L)
+    p = .35 
     vary_L = ~true # if true, vary system size; if false, use fixed system size and vary p # poovaryL 
 
     r = 3 # number of field updates per spin update 
@@ -333,9 +311,9 @@ function main()
                 data["hist"][t,:] .= state
                 data["field_hist"][t,:,:] .= fields
                 update_state!(state,correction,fields,new_fields,r,0,synch)
-                # if all(state) || ~any(state) # if we are anyon-free 
-                #     break 
-                # end
+                if all(state) || ~any(state) # if we are anyon-free 
+                    break 
+                end
             end 
             if examples % 100 == 0 println(examples) end 
             if any(state) && ~all(state) 
@@ -504,7 +482,6 @@ function main()
     else 
         alert("finished | L = $L; p = $(ps[1]) → $(ps[end])")
     end 
-    # print time that script finished 
     println("finished at time $(Dates.now())")
 end 
 

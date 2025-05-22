@@ -1,9 +1,9 @@
 include("common_functions.jl")
 
 """
-automaton where domains produce fields with power law force interactions of the form 1/x^alpha. 
-can set dw motion to either have a bias like 1/x^alpha, or to always move in the direction where the force is largest. 
-domain walls come with charges, which can either be assigned randomly (as they would be for charged anyons in 2D) or in an alternating fashion (as they would be for dws in 1D)
+automaton where domain walls produce fields with power law force interactions of the form 1/x^alpha. 
+can set dw motion to either be diffusive with a bias like 1/x^alpha, or to always move in the direction where the force is largest. 
+domain walls can also come with charges, which can either be assigned randomly (as they would be for charged anyons in 2D) or in an alternating fashion (as they would be for dws in 1D). however, charges do not seem to improve decoding.
 """
 
 function update_state!(state,charges,charged,p,q,synch,alpha,gamma,interactions,correction_field,correction,charge_correction;alter=false)
@@ -22,8 +22,6 @@ function update_state!(state,charges,charged,p,q,synch,alpha,gamma,interactions,
     ind(i) = mod1(i,L)
     qcharged = charged ? 1 : -1 # uncharged case is attractive; this sign is needed to simplify things 
     if charged @assert q == 0 "measurement errors not implemented yet"; @assert sum(charges) == 0 "not charge neutral!" end 
-
-    @assert ~charged "something is fucked up about charged updates... check history with bias towards false"
 
     if synch                 
         @views dws = findall(charges .!= 0)
@@ -52,7 +50,7 @@ function update_state!(state,charges,charged,p,q,synch,alpha,gamma,interactions,
             for i in randperm(length(dws)) 
                 dw = dws[i]
                 qi = charges[dw]
-                if qi != 0 #&& rand() < .9 # can add laziness to remove unwanted limit cycles but perhaps not a big deal?  
+                if qi != 0 
                     F = qi * correction_field[dw] 
                     v = F / (abs(F) + gamma)
                     if rands[i] ≤ (1+v)/2 # if dw wants to move right 
@@ -75,7 +73,7 @@ function update_state!(state,charges,charged,p,q,synch,alpha,gamma,interactions,
             for i in 1:length(dws) 
                 dw = dws[i]
                 qi = charges[dw]
-                if qi != 0 && rand() < .9 # just adding laziness to remove unwanted limit cycles but perhaps not a big deal?
+                if qi != 0 
                     F = qi * correction_field[dw] 
                     v = F / (abs(F) + gamma)
                     if rands[i] ≤ (1+v)/2 # if dw wants to move right 
@@ -91,7 +89,7 @@ function update_state!(state,charges,charged,p,q,synch,alpha,gamma,interactions,
         # now do the errors -- happens in series for different sites since have to sort out the charge updates
         if charged 
             rands = rand(L)
-            for i in randperm(L) # more efficient than shuffle(1:L) which creates a temp array 
+            for i in randperm(L)
                 if rands[i] < p 
                     if alter    
                         state[i] ⊻= true # spin flip always allowed since charges alternate; charges will be determined at the end 
@@ -123,7 +121,7 @@ function update_state!(state,charges,charged,p,q,synch,alpha,gamma,interactions,
                     state[i] ⊻= true 
                 end
             end
-            for i in 1:L # note: doing this as charges = [state != state for i in 1:L] would NOT modify charges after the function call finished 
+            for i in 1:L 
                 charges[i] = state[i] != state[ind(i+1)] ? 1 : 0  
             end 
         end
@@ -133,6 +131,9 @@ function update_state!(state,charges,charged,p,q,synch,alpha,gamma,interactions,
 end 
 
 function parameter_repository(mode,L,p,vary_L,measurement_error_strength,synch,alpha,gamma,charged)
+    """
+    stores values of parameters appropriate for different situations (decay strengths, simulation modes, etc.)
+    """
     q = measurement_error_strength * p 
     pmin = 0; pmax = 1; nps = 1; nLs = 1 
     samps = 1; ps = [p]; qs = [measurement_error_strength * p]; Ls = [L]
@@ -142,7 +143,6 @@ function parameter_repository(mode,L,p,vary_L,measurement_error_strength,synch,a
     pc = 0
 
     if mode == "trel"
-
         ### fix system size, vary p ###
         if ~vary_L 
             nps = 10
@@ -275,7 +275,6 @@ function parameter_repository(mode,L,p,vary_L,measurement_error_strength,synch,a
                     pmin = .01; pmax = .1 
                 end 
             else # uncharged
-                
                 if alpha == .01 
                     pmin = .01; pmax = .5 
                 elseif alpha == .25 
@@ -336,31 +335,20 @@ function main()
     * "erode_times": computes erosion time of initial domain walls of different sizes 
     """
 
-    mode = "trel" # "stats" "trel" "Ft" "hist" "erode" "erode_times" # poomode 
-    # pool # 48 64 96 128 192 256 384 512 (used if varying p)
-    L = 48
-    L = 256
-    L = 1028
-    L = 128
-    L = 512
-    L = 8 
-    L = 16
-    L = 32 
-    L = 64
+    mode = "trel" # "stats" "trel" "Ft" "hist" "erode" "erode_times" 
     L = 128 
-    
-    p = .01 # poop (used if varying L)
-    vary_L = ~true # if true, vary system size; if false, use fixed system size and vary p # poovaryL 
+    p = .01 
+    vary_L = ~true # if true, vary system size; if false, use fixed system size and vary p
     ind(i) = mod1(i,L)
 
-    alpha = 2. # power law exponent  # pooalpha 
+    alpha = 2. # power law exponent 
     charged = ~true # poocharge 
     alter = false # if charged, makes domain walls alternate in signs (as they would for dws in 1D); if uncharged, makes domain walls have random charges (as they would for charged anyons in 2D) # pooalter 
     gamma = 0 # bias of noise is force / (gamma + |force|) --- becomes sgn(F) in the limit gamma = 0 # poogamma
-    synch = true # whether or not to synchronize the updates # poosynch 
+    synch = true # whether or not to synchronize the updates
 
-    out_adj = "" # poooutadj
-    measurement_error_strength = 0 # syndrome measurements fail with probability measurement_error_strength * p # pooq 
+    out_adj = "" # suffix for file output 
+    measurement_error_strength = 0 # syndrome measurements fail with probability measurement_error_strength * p # 
     q = p * measurement_error_strength
 
     params = parameter_repository(mode,L,p,vary_L,measurement_error_strength,synch,alpha,gamma,charged)
@@ -373,7 +361,6 @@ function main()
     if vary_L 
         println("(p,q) = ($p,$q)")
         println("Ls = $Ls")
-        # println("Ts = $Ts")
     else 
         println("system size: $L")
         println("ps = $ps")
@@ -391,7 +378,7 @@ function main()
         for j in 1:L 
             if i != j
                 interactions[i,j] = 1/circle_distance(i,j,L)^alpha 
-                # interactions[i,j] = exp(-5.0 * circle_distance(i,j,L)) # to test nearest-dw interactions
+                # interactions[i,j] = exp(-5.0 * circle_distance(i,j,L)) # sanity check for comparing to nearest-dw interactions
             end 
         end 
     end
@@ -401,7 +388,7 @@ function main()
     charge_correction = zeros(Int,L)
 
     ### write history of evolution ### 
-    if mode == "hist" # poohist 
+    if mode == "hist"
         println("running history at size $L with noise (p,q) = ($(ps[1]),$(qs[1]))...")
         Ts[1] = round(Int,L/2)
         println("running for time T = $(Ts[1])")
@@ -416,7 +403,6 @@ function main()
         while ~failure && counts < maxcounts 
             state,charges = charged_init(.6,L,charged,alter,"rand")
             init_log = sum(state) < L/2 ? 0 : 1 
-            # println("init_log = $init_log")
             for t in 1:Ts[1]
                 data["hist"][t,:] .= state
                 data["charge_hist"][t,:] .= charges
@@ -459,13 +445,10 @@ function main()
                 # create suitably random initial state # 
                 state,charges = charged_init(thisp,thisL,charged,alter,"rand")
                 init_logical = sum(state) < thisL/2 ? 0 : 1
-                # println("mag = ",2*(sum(state)/L - .5))
                 t = 0 
-                # println("b: ",sum(abs.(charges)))
                 tmax = 50thisL^2
                 while t < tmax # finite time allowing for possibility of other absorbing states 
                     update_state!(state,charges,charged,0,0,synch,alpha,gamma,interactions,correction_field,correction,charge_correction;alter=alter)
-                    # println("a: ",sum(abs.(charges)))
 
                     t += 1 
                     if any(charges .!= 0) #
@@ -480,17 +463,15 @@ function main()
             end 
         end 
 
-    else ## stuff requiring monte carlo averages (other than erode_times)
+    else ## things requiring monte carlo averages (other than erode_times)
 
-        ### initialize various things ### 
+        ### initialize ### 
         nsteps = vary_L ? length(Ls) : length(ps)
-        # data["Mt"] = zeros(nsteps,T) # ⟨magnetization(t)⟩
         scalar_quantities = ["Ft" "binds" "chis" "Ms" "trels"]
         for key in scalar_quantities data[key] = zeros(nsteps) end
 
         ### compute things requiring monte carlo averages ### 
         function compute(p,q,samps,L,T)
-            # define stuff that will be re-used many times by update_state!
             interactions = zeros(L,L)
             for i in 1:L 
                 for j in 1:L 
@@ -517,7 +498,6 @@ function main()
 
             if mode == "trel"
                 maxT = 5000000000
-                # logical_mag = 1 # begin the system in the logical state aligned against the bias of the noise 
                 @showprogress dt=1 desc="sampling..." for samp in 1:samps 
                     state,charges = charged_init(0,L,charged,alter,"rand") # gives positive magnetization for p < .5
                     t = 1 
@@ -593,7 +573,6 @@ function main()
     else 
         alert("finished | L = $L; p = $(ps[1]) → $(ps[end])")
     end 
-    # print time that script finished 
     println("finished at time $(Dates.now())")
 end 
 
